@@ -99,15 +99,16 @@ router.post('/', async (request, env) => {
                           value: '경기과학기술대학교',
                         },
                         {
+                          // '한국산업기술대학교'를 '한국공학대학교'로 변경하여 일관성 유지
                           label: '한국공학대학교',
-                          value: '한국산업기술대학교',
+                          value: '한국공학대학교',
                         },
                       ],
                     },
                   ],
                 },
               ],
-              flags: 64, // <-- 이 부분을 추가하여 메시지를 본인에게만 보이도록 설정
+              flags: 64, // <-- 메시지를 본인에게만 보이도록 설정
             },
           });
         }
@@ -155,7 +156,8 @@ router.post('/', async (request, env) => {
                     label: '학교 이메일을 입력해주세요.',
                     style: TextInputStyle.Short,
                     required: true,
-                    placeholder: `예: yourname@${selectedUniversity === '경기과학기술대학교' ? 'gtec.ac.kr' : 'kpu.ac.kr'}`,
+                    // 이메일 플레이스홀더를 요청에 따라 업데이트
+                    placeholder: `예) 학번@${selectedUniversity === '경기과학기술대학교' ? 'office.gtec.ac.kr' : 'tukorea.ac.kr'}`,
                   },
                 ],
               },
@@ -171,7 +173,7 @@ router.post('/', async (request, env) => {
       });
     }
 
-    // --- 3. 모달 제출 처리 (`MODAL_SUBMIT`): 선택된 대학교와 이메일 출력 ---
+    // --- 3. 모달 제출 처리 (`MODAL_SUBMIT`): 선택된 대학교와 이메일 출력 및 UnivCert API 호출 ---
     if (interaction.type === InteractionType.MODAL_SUBMIT) {
       console.log(
         'Handling MODAL_SUBMIT. Custom ID:',
@@ -198,20 +200,129 @@ router.post('/', async (request, env) => {
       }
 
       console.log(
-        `Modal submitted: University - ${selectedUniversity}, Email - ${email}. Responding to channel.`,
+        `Modal submitted: University - ${selectedUniversity}, Email - ${email}.`,
       );
-      return new JsonResponse({
-        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-        data: {
-          content: `**인증 정보 확인:**\n- **선택된 대학교:** ${selectedUniversity}\n- **입력된 이메일:** ${email}`,
-          flags: 0, // 모두에게 보이는 메시지
-        },
-      });
+
+      // --- 3.1 이메일 형식 유효성 검사 ---
+      let isValidEmailFormat = false;
+      let expectedDomain = ''; // 이메일 형식 오류 메시지에 사용될 도메인
+      if (selectedUniversity === '경기과학기술대학교') {
+        expectedDomain = 'office.gtec.ac.kr';
+        // 정규식: "학번@office.gtec.ac.kr" 형식 검사
+        isValidEmailFormat = /^[a-zA-Z0-9._%+-]+@office\.gtec\.ac\.kr$/i.test(
+          email,
+        );
+      } else if (selectedUniversity === '한국공학대학교') {
+        expectedDomain = 'tukorea.ac.kr';
+        // 정규식: "학번@tukorea.ac.kr" 형식 검사
+        isValidEmailFormat = /^[a-zA-Z0-9._%+-]+@tukorea\.ac\.kr$/i.test(email);
+      } else {
+        // 예상치 못한 대학교 선택인 경우 (불가능에 가까움)
+        isValidEmailFormat = false;
+        expectedDomain = '알 수 없음';
+      }
+
+      if (!isValidEmailFormat) {
+        console.log(`Email format invalid for ${selectedUniversity}: ${email}`);
+        return new JsonResponse({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: {
+            content: `이메일 형식이 맞지 않습니다. **${selectedUniversity}**의 올바른 이메일 형식(예: 학번@${expectedDomain})으로 다시 입력해주세요.`,
+            flags: 64, // 본인에게만 보임
+          },
+        });
+      }
+
+      // --- 3.2 UnivCert API 호출 ---
+      // Cloudflare Worker Secret에 'UNIVCERT_API_KEY'라는 이름으로 API 키를 설정해야 합니다.
+      const univcertApiKey = env.UNIVCERT_API_KEY;
+      if (!univcertApiKey) {
+        console.error(
+          'UNIVCERT_API_KEY is not set in Cloudflare Worker secrets.',
+        );
+        return new JsonResponse({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: {
+            content:
+              '봇 설정 오류: 인증 API 키가 설정되지 않았습니다. 관리자에게 문의하세요.',
+            flags: 64, // 본인에게만 보임
+          },
+        });
+      }
+
+      const univcertPayload = {
+        key: univcertApiKey,
+        email: email,
+        univName: selectedUniversity, // API에 전달할 대학교 이름 (예: "경기과학기술대학교", "한국공학대학교")
+        univ_check: false, // 요청에 따라 false로 고정
+      };
+
+      try {
+        console.log(
+          'Sending request to UnivCert API:',
+          JSON.stringify(univcertPayload),
+        );
+        const univcertResponse = await fetch(
+          'https://univcert.com/api/v1/certify',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(univcertPayload),
+          },
+        );
+
+        const univcertResult = await univcertResponse.json();
+        console.log('UnivCert API Response:', JSON.stringify(univcertResult));
+
+        // UnivCert API 응답 결과 처리
+        if (univcertResponse.ok && univcertResult.success) {
+          // API 호출 성공 및 UnivCert에서 'success: true' 반환 시
+          return new JsonResponse({
+            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+            data: {
+              content: `**인증 메일 전송 요청 완료!**\n\n**선택된 대학교:** ${selectedUniversity}\n**입력된 이메일:** ${email}\n\n**${selectedUniversity}** 이메일로 인증 메일이 전송되었습니다. 메일을 확인하고 인증을 완료해주세요!`,
+              flags: 64, // 본인에게만 보임
+            },
+          });
+        } else {
+          // API 호출 실패 또는 UnivCert에서 'success: false' 반환 시
+          let errorMessage = '인증 메일 전송에 실패했습니다.';
+          if (univcertResult.message) {
+            errorMessage += `\n오류: ${univcertResult.message}`;
+          } else {
+            errorMessage += `\n알 수 없는 API 응답 오류.`;
+          }
+          console.error('UnivCert API error:', univcertResult);
+          return new JsonResponse({
+            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+            data: {
+              content: `**인증 메일 전송 실패!**\n\n${errorMessage}\n\n잠시 후 다시 시도하거나, 이메일 주소를 다시 확인해주세요.`,
+              flags: 64, // 본인에게만 보임
+            },
+          });
+        }
+      } catch (apiError) {
+        // 네트워크 오류 등 API 호출 자체에서 발생한 예외 처리
+        console.error('Error during UnivCert API call:', apiError);
+        return new JsonResponse({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: {
+            content:
+              '인증 서버와의 통신 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
+            flags: 64, // 본인에게만 보임
+          },
+        });
+      }
     }
 
-    // 예상치 못한 상호작용 타입인 경우
-    console.error('Unknown Interaction Type:', interaction.type);
-    return new JsonResponse({ error: 'Unknown Type' }, { status: 400 });
+    // `authentication_modal`이 아닌 다른 모달이 제출된 경우 (발생해서는 안 됨)
+    console.log('Unknown modal custom_id:', interaction.data.custom_id);
+    return new JsonResponse({
+      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+      data: { content: '알 수 없는 모달 상호작용입니다.', flags: 64 },
+    });
   } catch (error) {
     // 최상위 try-catch 블록: 예상치 못한 오류를 잡고 로그 출력
     console.error('Unhandled error in router.post:', error);
