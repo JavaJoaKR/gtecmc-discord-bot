@@ -1,10 +1,6 @@
 import { expect } from 'chai';
 import { describe, it, beforeEach, afterEach } from 'mocha';
-import {
-  InteractionResponseType,
-  InteractionType,
-  InteractionResponseFlags,
-} from 'discord-interactions';
+import { InteractionResponseType, InteractionType } from 'discord-interactions';
 import { AUTH } from '../src/commands.js';
 import sinon from 'sinon';
 import server from '../src/server.js';
@@ -63,7 +59,7 @@ describe('Server', () => {
       const interaction = {
         type: InteractionType.APPLICATION_COMMAND,
         data: {
-          name:AUTH.name,
+          name: AUTH.name,
         },
       };
 
