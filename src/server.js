@@ -16,23 +16,13 @@ import { AUTH } from './commands.js';
 const MessageComponentTypes = {
   ActionRow: 1,
   Button: 2,
-  StringSelect: 3,
+  StringSelect: 3, // StringSelect는 3번 타입입니다.
   TextInput: 4,
   UserSelect: 5,
   RoleSelect: 6,
   MentionableSelect: 7,
   ChannelSelect: 8,
 };
-
-const ButtonStyle = {
-  // 버튼 스타일 상수 추가
-  Primary: 1, // 파란색
-  Secondary: 2, // 회색
-  Success: 3, // 초록색
-  Danger: 4, // 빨간색
-  Link: 5, // 링크 (URL 필요)
-};
-
 const TextInputStyle = {
   Short: 1, // 한 줄 텍스트 입력
   Paragraph: 2, // 여러 줄 텍스트 입력
@@ -83,34 +73,38 @@ router.post('/', async (request, env) => {
       });
     }
 
-    // --- 1. 슬래시 명령어 처리 (`/인증`): 관리자만 사용, 버튼 포함 메시지 전송 ---
+    // --- 1. 슬래시 명령어 처리 (`/인증`): 관리자만 사용, 드롭다운 포함 메시지 전송 ---
     if (interaction.type === InteractionType.APPLICATION_COMMAND) {
       console.log('Handling APPLICATION_COMMAND:', interaction.data.name);
       switch (interaction.data.name.toLowerCase()) {
         case AUTH.name.toLowerCase(): {
           console.log(
-            'Admin user called /인증. Sending university selection message with buttons.',
+            'Admin user called /인증. Sending university selection message with dropdown.',
           );
           return new JsonResponse({
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE, // 채널에 메시지 전송
             data: {
               content: '인증할 대학교를 선택하세요.',
               components: [
-                // 메시지에 버튼 추가
+                // 메시지에 드롭다운 추가
                 {
                   type: MessageComponentTypes.ActionRow,
                   components: [
                     {
-                      type: MessageComponentTypes.Button,
-                      custom_id: 'select_university_gtec', // 경기과기대 버튼 ID
-                      style: ButtonStyle.Primary, // 파란색 버튼
-                      label: '경기과학기술대학교',
-                    },
-                    {
-                      type: MessageComponentTypes.Button,
-                      custom_id: 'select_university_tuk', // 한국공학대 버튼 ID
-                      style: ButtonStyle.Primary, // 파란색 버튼
-                      label: '한국공학대학교',
+                      type: MessageComponentTypes.StringSelect, // 버튼 대신 StringSelect 사용
+                      custom_id: 'initial_university_select', // 드롭다운의 고유 ID
+                      placeholder: '대학교를 선택해주세요.',
+                      options: [
+                        // 드롭다운에 표시될 옵션들
+                        {
+                          label: '경기과학기술대학교',
+                          value: '경기과학기술대학교',
+                        },
+                        {
+                          label: '한국공학대학교',
+                          value: '한국산업기술대학교',
+                        },
+                      ],
                     },
                   ],
                 },
@@ -127,24 +121,24 @@ router.post('/', async (request, env) => {
       }
     }
 
-    // --- 2. 버튼 클릭 상호작용 처리 (`MESSAGE_COMPONENT`): 이메일 입력 모달 표시 ---
+    // --- 2. 드롭다운 선택 상호작용 처리 (`MESSAGE_COMPONENT`): 이메일 입력 모달 표시 ---
     if (interaction.type === InteractionType.MESSAGE_COMPONENT) {
       console.log(
-        'Handling MESSAGE_COMPONENT. Custom ID:',
+        'Handling MESSAGE_COMPONENT (Dropdown Select). Custom ID:',
         interaction.data.custom_id,
       );
       const customId = interaction.data.custom_id;
 
       let selectedUniversity = '';
-      if (customId === 'select_university_gtec') {
-        selectedUniversity = '경기과학기술대학교';
-      } else if (customId === 'select_university_tuk') {
-        selectedUniversity = '한국산업기술대학교';
+      // 'initial_university_select' 드롭다운에서 선택된 경우
+      if (customId === 'initial_university_select') {
+        // 드롭다운의 선택된 값은 interaction.data.values 배열에 있습니다.
+        selectedUniversity = interaction.data.values[0]; // 첫 번째 (단일 선택) 값을 가져옵니다.
       }
 
       if (selectedUniversity) {
         console.log(
-          `User selected ${selectedUniversity}. Preparing to send email modal.`,
+          `User selected ${selectedUniversity} from dropdown. Preparing to send email modal.`,
         );
         return new JsonResponse({
           type: InteractionResponseType.MODAL, // 모달 표시
@@ -170,11 +164,11 @@ router.post('/', async (request, env) => {
           },
         });
       }
-      console.log('Unknown button custom_id:', customId);
-      // 알 수 없는 버튼 클릭 시, 사용자에게만 보이는 임시 메시지로 응답 (타임아웃 방지)
+      console.log('Unknown message component custom_id:', customId);
+      // 알 수 없는 드롭다운 또는 버튼 클릭 시, 사용자에게만 보이는 임시 메시지로 응답 (타임아웃 방지)
       return new JsonResponse({
         type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-        data: { content: '알 수 없는 버튼 상호작용입니다.', flags: 64 }, // flags: 64는 ephemeral (사용자만 볼 수 있음)
+        data: { content: '알 수 없는 상호작용입니다.', flags: 64 }, // flags: 64는 ephemeral (사용자만 볼 수 있음)
       });
     }
 
