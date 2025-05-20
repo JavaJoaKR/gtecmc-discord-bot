@@ -9,7 +9,6 @@ import {
   verifyKey,
 } from 'discord-interactions';
 import { AUTH } from './commands.js';
-import { getCuteUrl } from './reddit.js';
 
 class JsonResponse extends Response {
   constructor(body, init) {
@@ -58,11 +57,10 @@ router.post('/', async (request, env) => {
     // Most user commands will come as `APPLICATION_COMMAND`.
     switch (interaction.data.name.toLowerCase()) {
       case AUTH.name.toLowerCase(): {
-        const cuteUrl = await getCuteUrl();
         return new JsonResponse({
           type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
           data: {
-            content: cuteUrl,
+            content: 'test',
           },
         });
       }
