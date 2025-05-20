@@ -5,6 +5,5 @@
 
 export const AUTH = {
   name: '인증',
-  description: '대학교 인증 메세지 출력 명령어입니다. (관리자)',
-  default_member_permissions: '8',
+  description: '대학교 인증 명령이입니다.',
 };
