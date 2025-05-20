@@ -7,7 +7,7 @@ import {
   InteractionResponseType,
   InteractionType,
   verifyKey,
-  // 기존 임포트에서 MessageComponentTypes와 TextInputStyle 제거 (아래에서 상수로 직접 정의)
+  // 기존 임포트에서 MessageComponentTypes, TextInputStyle 제거 (아래에서 상수로 직접 정의)
 } from 'discord-interactions';
 import { AUTH } from './commands.js';
 
@@ -24,9 +24,18 @@ const MessageComponentTypes = {
   ChannelSelect: 8,
 };
 
+const ButtonStyle = {
+  // 버튼 스타일 상수 추가
+  Primary: 1, // 파란색
+  Secondary: 2, // 회색
+  Success: 3, // 초록색
+  Danger: 4, // 빨간색
+  Link: 5, // 링크 (URL 필요)
+};
+
 const TextInputStyle = {
-  Short: 1,
-  Paragraph: 2,
+  Short: 1, // 한 줄 텍스트 입력
+  Paragraph: 2, // 여러 줄 텍스트 입력
 };
 
 class JsonResponse extends Response {
@@ -48,17 +57,15 @@ router.get('/', (request, env) => {
 });
 
 router.post('/', async (request, env) => {
-  // --- 1. 요청 시작 시점 로그 ---
   console.log('Interaction received:', new Date().toISOString());
 
   try {
-    // Worker 내부에서 발생하는 모든 예외를 잡기 위한 try-catch 블록 추가
+    // Worker 내부에서 발생하는 모든 예외를 잡기 위한 try-catch 블록
     const { isValid, interaction } = await server.verifyDiscordRequest(
       request,
       env,
     );
 
-    // --- 2. 서명 검증 결과 로그 ---
     if (!isValid || !interaction) {
       console.log('Invalid request signature or no interaction.', {
         isValid,
@@ -67,7 +74,7 @@ router.post('/', async (request, env) => {
       return new Response('Bad request signature.', { status: 401 });
     }
     console.log('Request valid. Interaction type:', interaction.type);
-    console.log('Interaction data:', JSON.stringify(interaction.data, null, 2)); // 디버깅을 위해 interaction.data 출력
+    console.log('Interaction data:', JSON.stringify(interaction.data, null, 2));
 
     if (interaction.type === InteractionType.PING) {
       console.log('Responding with PONG.');
@@ -76,50 +83,34 @@ router.post('/', async (request, env) => {
       });
     }
 
-    // --- 슬래시 명령어 처리 (`/인증`) ---
+    // --- 1. 슬래시 명령어 처리 (`/인증`): 관리자만 사용, 버튼 포함 메시지 전송 ---
     if (interaction.type === InteractionType.APPLICATION_COMMAND) {
       console.log('Handling APPLICATION_COMMAND:', interaction.data.name);
       switch (interaction.data.name.toLowerCase()) {
         case AUTH.name.toLowerCase(): {
-          // --- 3. /인증 명령어 처리 직전 로그 ---
-          console.log('Preparing to send modal for /인증 command.');
+          console.log(
+            'Admin user called /인증. Sending university selection message with buttons.',
+          );
           return new JsonResponse({
-            type: InteractionResponseType.MODAL, // 모달을 표시하는 응답 타입
+            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE, // 채널에 메시지 전송
             data: {
-              custom_id: 'authentication_modal', // 이 모달의 고유 ID (모달 제출 시 사용)
-              title: '대학교 인증',
+              content: '인증할 대학교를 선택하세요.',
               components: [
+                // 메시지에 버튼 추가
                 {
-                  type: MessageComponentTypes.ActionRow, // 컴포넌트를 담는 액션 로우
+                  type: MessageComponentTypes.ActionRow,
                   components: [
                     {
-                      type: MessageComponentTypes.StringSelect, // 대학교 선택 드롭다운
-                      custom_id: 'university_select', // 이 컴포넌트의 고유 ID
-                      placeholder: '대학교를 선택해주세요.',
-                      options: [
-                        {
-                          label: '경기과학기술대학교',
-                          value: '경기과학기술대학교',
-                        },
-                        {
-                          label: '한국공학대학교',
-                          value: '한국산업기술대학교',
-                        },
-                      ],
+                      type: MessageComponentTypes.Button,
+                      custom_id: 'select_university_gtec', // 경기과기대 버튼 ID
+                      style: ButtonStyle.Primary, // 파란색 버튼
+                      label: '경기과학기술대학교',
                     },
-                  ],
-                },
-                {
-                  type: MessageComponentTypes.ActionRow, // 이메일 입력을 위한 또 다른 액션 로우
-                  components: [
                     {
-                      type: MessageComponentTypes.TextInput, // 이메일 입력 필드
-                      custom_id: 'email_input', // 이 컴포넌트의 고유 ID
-                      label: '학교 이메일을 입력해주세요.',
-                      style: TextInputStyle.Short, // 한 줄 텍스트 입력 스타일
-                      required: true, // 필수 입력 필드
-                      placeholder:
-                        '예: yourname@gtec.ac.kr 또는 yourname@kpu.ac.kr',
+                      type: MessageComponentTypes.Button,
+                      custom_id: 'select_university_tuk', // 한국공학대 버튼 ID
+                      style: ButtonStyle.Primary, // 파란색 버튼
+                      label: '한국공학대학교',
                     },
                   ],
                 },
@@ -136,49 +127,101 @@ router.post('/', async (request, env) => {
       }
     }
 
-    // --- 모달 제출 처리 (사용자가 모달에서 '확인' 버튼을 눌렀을 때) ---
+    // --- 2. 버튼 클릭 상호작용 처리 (`MESSAGE_COMPONENT`): 이메일 입력 모달 표시 ---
+    if (interaction.type === InteractionType.MESSAGE_COMPONENT) {
+      console.log(
+        'Handling MESSAGE_COMPONENT. Custom ID:',
+        interaction.data.custom_id,
+      );
+      const customId = interaction.data.custom_id;
+
+      let selectedUniversity = '';
+      if (customId === 'select_university_gtec') {
+        selectedUniversity = '경기과학기술대학교';
+      } else if (customId === 'select_university_tuk') {
+        selectedUniversity = '한국산업기술대학교';
+      }
+
+      if (selectedUniversity) {
+        console.log(
+          `User selected ${selectedUniversity}. Preparing to send email modal.`,
+        );
+        return new JsonResponse({
+          type: InteractionResponseType.MODAL, // 모달 표시
+          data: {
+            // 모달 custom_id에 선택된 대학교 정보를 포함하여 나중에 추출할 수 있도록 합니다.
+            custom_id: `email_modal_${selectedUniversity.replace(/ /g, '_')}`, // 예: email_modal_경기과학기술대학교
+            title: `${selectedUniversity} 이메일 인증`,
+            components: [
+              {
+                type: MessageComponentTypes.ActionRow,
+                components: [
+                  {
+                    type: MessageComponentTypes.TextInput,
+                    custom_id: 'email_input', // 이메일 입력 필드 ID
+                    label: '학교 이메일을 입력해주세요.',
+                    style: TextInputStyle.Short,
+                    required: true,
+                    placeholder: `예: yourname@${selectedUniversity === '경기과학기술대학교' ? 'gtec.ac.kr' : 'kpu.ac.kr'}`,
+                  },
+                ],
+              },
+            ],
+          },
+        });
+      }
+      console.log('Unknown button custom_id:', customId);
+      // 알 수 없는 버튼 클릭 시, 사용자에게만 보이는 임시 메시지로 응답 (타임아웃 방지)
+      return new JsonResponse({
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: { content: '알 수 없는 버튼 상호작용입니다.', flags: 64 }, // flags: 64는 ephemeral (사용자만 볼 수 있음)
+      });
+    }
+
+    // --- 3. 모달 제출 처리 (`MODAL_SUBMIT`): 선택된 대학교와 이메일 출력 ---
     if (interaction.type === InteractionType.MODAL_SUBMIT) {
       console.log(
         'Handling MODAL_SUBMIT. Custom ID:',
         interaction.data.custom_id,
       );
-      // 제출된 모달이 우리가 만든 'authentication_modal'인지 확인합니다.
-      if (interaction.data.custom_id === 'authentication_modal') {
-        let selectedUniversity = '미선택';
-        let email = '미입력';
+      const modalCustomId = interaction.data.custom_id;
 
-        // 모달에서 제출된 컴포넌트의 값을 추출합니다.
-        for (const actionRow of interaction.data.components) {
-          for (const component of actionRow.components) {
-            if (component.custom_id === 'university_select') {
-              selectedUniversity = component.value;
-            } else if (component.custom_id === 'email_input') {
-              email = component.value;
-            }
+      let selectedUniversity = '미선택';
+      // 모달 custom_id에서 대학교 정보 추출
+      if (modalCustomId.startsWith('email_modal_')) {
+        selectedUniversity = modalCustomId
+          .replace('email_modal_', '')
+          .replace(/_/g, ' '); // '_'를 공백으로 되돌림
+      }
+
+      let email = '미입력';
+      // 모달 컴포넌트에서 이메일 값 추출
+      for (const actionRow of interaction.data.components) {
+        for (const component of actionRow.components) {
+          if (component.custom_id === 'email_input') {
+            email = component.value;
           }
         }
-        // --- 4. 모달 데이터 추출 후 응답 직전 로그 ---
-        console.log(
-          `Modal submitted: University - ${selectedUniversity}, Email - ${email}. Responding to channel.`,
-        );
-        return new JsonResponse({
-          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE, // 채널에 메시지를 보냅니다.
-          data: {
-            content: `**인증 정보 확인:**\n- **선택된 대학교:** ${selectedUniversity}\n- **입력된 이메일:** ${email}`,
-            flags: 0, // 0은 모두에게 공개, 64는 사용자에게만 보이는 임시 메시지 (ephemeral)
-          },
-        });
       }
-      console.log('Unknown modal custom_id:', interaction.data.custom_id);
+
+      console.log(
+        `Modal submitted: University - ${selectedUniversity}, Email - ${email}. Responding to channel.`,
+      );
+      return new JsonResponse({
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: {
+          content: `**인증 정보 확인:**\n- **선택된 대학교:** ${selectedUniversity}\n- **입력된 이메일:** ${email}`,
+          flags: 0, // 모두에게 보이는 메시지
+        },
+      });
     }
 
     // 예상치 못한 상호작용 타입인 경우
     console.error('Unknown Interaction Type:', interaction.type);
     return new JsonResponse({ error: 'Unknown Type' }, { status: 400 });
   } catch (error) {
-    // --- 최상위 try-catch 블록: 예상치 못한 오류를 잡음 ---
+    // 최상위 try-catch 블록: 예상치 못한 오류를 잡고 로그 출력
     console.error('Unhandled error in router.post:', error);
-    // Cloudflare Worker 로그에 오류가 명확히 나타나도록 500 응답 반환
     return new JsonResponse(
       { error: 'Internal Server Error', details: error.message },
       { status: 500 },
@@ -189,27 +232,23 @@ router.post('/', async (request, env) => {
 router.all('*', () => new Response('Not Found.', { status: 404 }));
 
 async function verifyDiscordRequest(request, env) {
-  // --- 5. 서명 검증 함수 진입 로그 ---
   console.log('Entering verifyDiscordRequest.');
   const signature = request.headers.get('x-signature-ed25519');
   const timestamp = request.headers.get('x-signature-timestamp');
-  const body = await request.text(); // 이 부분이 느릴 수 있음
+  const body = await request.text();
 
-  // --- 6. 바디 파싱 후 서명 검증 직전 로그 ---
   console.log('Body parsed. Attempting signature verification.');
   const isValidRequest =
     signature &&
     timestamp &&
     (await verifyKey(body, signature, timestamp, env.DISCORD_PUBLIC_KEY));
 
-  // --- 7. 서명 검증 완료 로그 ---
   console.log('Signature verification complete. isValid:', isValidRequest);
 
   if (!isValidRequest) {
     return { isValid: false };
   }
 
-  // 디버깅을 위해 파싱된 상호작용 객체도 로그에 출력
   const interaction = JSON.parse(body);
   console.log(
     'Parsed interaction object:',
