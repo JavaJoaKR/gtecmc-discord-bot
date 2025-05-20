@@ -2,6 +2,9 @@ name = "gtecmc-discord-bot"
 main = "./src/server.js"
 compatibility_date="2025-05-20"
 
+[observability]
+enabled = true
+
 # [secrets]
 # DISCORD_TOKEN
 # DISCORD_PUBLIC_KEY
