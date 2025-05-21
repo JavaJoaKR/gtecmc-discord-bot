@@ -81,7 +81,7 @@ router.post('/', async (request, env) => {
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
             data: {
               content:
-                '**대학교 인증을 시작합니다.**\n재학생 및 졸업생 인증만 가능합니다.',
+                '**대학교 인증을 시작합니다.**\n\n졸업생은 수동 인증을 해야합니다.\n방장에게 에타 프로필 캡처본과 학번 9자리를 보내주세요.',
               components: [
                 {
                   type: MessageComponentTypes.ActionRow,
