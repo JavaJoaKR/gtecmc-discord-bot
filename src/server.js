@@ -4,7 +4,7 @@ import {
   InteractionType,
   verifyKey,
 } from 'discord-interactions';
-import { AUTH, RENAME } from './commands.js'; // Updated import
+import { AUTH, RENAME } from './commands.js';
 
 const GTEC_ROLE = '1374438933022249012';
 const TUK_ROLE = '1374439011317321748';
@@ -71,11 +71,12 @@ router.post('/', async (request, env) => {
             return new JsonResponse({
               type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
               data: {
-                content: `죄송합니다! 이 기능은 지정된 채널에서만 사용할 수 있습니다.`,
+                content: `죄송합니다! 대학교 인증은 지정된 채널에서만 사용할 수 있습니다.`,
                 flags: 64,
               },
             });
           }
+
           return new JsonResponse({
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
             data: {
@@ -124,7 +125,6 @@ router.post('/', async (request, env) => {
             interaction.member.nick || interaction.member.user.username;
           let studentIdPrefix = '';
 
-          // Attempt to extract student ID from current nickname
           const studentIdMatch = currentNickname.match(/^(\d+)\s/);
           if (studentIdMatch) {
             studentIdPrefix = studentIdMatch[1];
@@ -133,7 +133,7 @@ router.post('/', async (request, env) => {
           return new JsonResponse({
             type: InteractionResponseType.MODAL,
             data: {
-              custom_id: `rename_modal_${studentIdPrefix}`, // Pass student ID to modal custom_id
+              custom_id: `rename_modal_${studentIdPrefix}`,
               title: '닉네임 변경',
               components: [
                 {
@@ -148,7 +148,7 @@ router.post('/', async (request, env) => {
                       placeholder: studentIdPrefix
                         ? `${studentIdPrefix} 새로운이름`
                         : `새로운이름`,
-                      max_length: 32, // Discord nickname limit
+                      max_length: 32,
                     },
                   ],
                 },
@@ -203,8 +203,39 @@ router.post('/', async (request, env) => {
 
       if (selectedUniversity && !customId.startsWith('show_verify_modal_')) {
         return new JsonResponse({
-          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-          data: { content: '알 수 없는 상호작용입니다.', flags: 64 },
+          type: InteractionResponseType.MODAL,
+          data: {
+            custom_id: `email_modal_${selectedUniversity.replace(/ /g, '_')}`,
+            title: `${selectedUniversity} 이메일 인증`,
+            components: [
+              {
+                type: MessageComponentTypes.ActionRow,
+                components: [
+                  {
+                    type: MessageComponentTypes.TextInput,
+                    custom_id: 'student_id_input',
+                    label: '학번을 입력해주세요.',
+                    style: TextInputStyle.Short,
+                    required: true,
+                    placeholder: `예) 202512345`,
+                  },
+                ],
+              },
+              {
+                type: MessageComponentTypes.ActionRow,
+                components: [
+                  {
+                    type: MessageComponentTypes.TextInput,
+                    custom_id: 'student_name_input',
+                    label: '이름을 입력해주세요.',
+                    style: TextInputStyle.Short,
+                    required: true,
+                    placeholder: `예) 홍길동`,
+                  },
+                ],
+              },
+            ],
+          },
         });
       }
       return new JsonResponse({
@@ -496,7 +527,7 @@ router.post('/', async (request, env) => {
           });
         }
       } else if (modalCustomId.startsWith('rename_modal_')) {
-        const studentIdPrefix = modalCustomId.replace('rename_modal_', ''); // Retrieve student ID passed in custom_id
+        const studentIdPrefix = modalCustomId.replace('rename_modal_', '');
         let newName = '';
         for (const actionRow of interaction.data.components) {
           for (const component of actionRow.components) {
@@ -521,7 +552,6 @@ router.post('/', async (request, env) => {
         const guildId = interaction.guild_id;
         const userId = interaction.member.user.id;
 
-        // Construct the full new nickname with the preserved student ID
         const finalNickname = studentIdPrefix
           ? `${studentIdPrefix} ${newName}`
           : newName;
