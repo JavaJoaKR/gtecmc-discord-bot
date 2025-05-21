@@ -402,7 +402,7 @@ router.post('/', async (request, env) => {
               return new JsonResponse({
                 type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
                 data: {
-                  content: `**역할 부여 실패!**\n\n인증은 완료되었으나, 역할 부여에 실패했습니다. 봇의 권한을 확인하거나 관리자에게 문의해주세요.\n(Discord API 오류: ${errorText}...)`,
+                  content: `**역할 부여 실패!**\n\n인증은 완료되었으나, 역할 부여에 실패했습니다. 봇의 권한을 확인하거나 관리자에게 문의해주세요.\n(Discord API 오류: ${JSON.stringify(errorText)}...)`,
                   flags: 64,
                 },
               });
