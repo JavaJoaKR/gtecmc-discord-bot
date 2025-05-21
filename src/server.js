@@ -66,7 +66,7 @@ router.post('/', async (request, env) => {
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
             data: {
               content:
-                '통합 마인크래프트 서버 디스코드입니다.\n재학생, 졸업생 모두 가능합니다.',
+                '**대학교 인증을 시작합니다.**\n재학생 및 졸업생 인증만 가능합니다.',
               components: [
                 {
                   type: MessageComponentTypes.ActionRow,
@@ -397,7 +397,7 @@ router.post('/', async (request, env) => {
               return new JsonResponse({
                 type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
                 data: {
-                  content: `**역할 부여 실패!**\n인증은 완료되었으나, 역할 부여에 실패했습니다.\n봇의 권한을 확인하거나 관리자에게 문의해주세요.\n(Discord API 오류: ${addRoleResponse.status} ${errorText.substring(0, 100)}...)\nhttps://discord.com/api/v10/guilds/${guildId}/members/${userId}/roles/${roleIdToAssign}\n${discordBotToken},`,
+                  content: `**역할 부여 실패!**\n인증은 완료되었으나, 역할 부여에 실패했습니다.\n봇의 권한을 확인하거나 관리자에게 문의해주세요.\n(Discord API 오류: ${addRoleResponse.status} ${errorText.substring(0, 100)}...)`,
                   flags: 64,
                 },
               });
