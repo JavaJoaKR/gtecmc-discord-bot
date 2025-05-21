@@ -214,7 +214,7 @@ router.post('/', async (request, env) => {
                   {
                     type: MessageComponentTypes.TextInput,
                     custom_id: 'student_id_input',
-                    label: '학번을 입력해주세요.',
+                    label: '학번 또는 메일 아이디를 입력해주세요.',
                     style: TextInputStyle.Short,
                     required: true,
                     placeholder: `예) 202512345`,
@@ -279,11 +279,11 @@ router.post('/', async (request, env) => {
           actualEmail = `${studentId}@${expectedDomain}`;
         }
 
-        if (!/^[0-9]+$/.test(studentId) || studentId.length < 4) {
+        if (studentId.length < 4) {
           return new JsonResponse({
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
             data: {
-              content: `학번 형식이 올바르지 않습니다.\n${selectedUniversity}의 올바른 학번(예: 202512345)을 다시 입력해주세요.`,
+              content: `학번 형식이 올바르지 않습니다.\n${selectedUniversity}의 올바른 학번 또는 메일 아이디(예: 202512345)를 다시 입력해주세요.`,
               flags: 64,
             },
           });
