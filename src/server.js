@@ -142,12 +142,12 @@ router.post('/', async (request, env) => {
                     {
                       type: MessageComponentTypes.TextInput,
                       custom_id: 'new_nickname_input',
-                      label: `이름을 입력해주세요. (학번: ${studentIdPrefix || '없음'})`,
+                      label: `이름을 입력해주세요.`,
                       style: TextInputStyle.Short,
                       required: true,
                       placeholder: studentIdPrefix
-                        ? `${studentIdPrefix} 새로운이름`
-                        : `새로운이름`,
+                        ? `${studentIdPrefix} 이름`
+                        : `이름`,
                       max_length: 32,
                     },
                   ],
