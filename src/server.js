@@ -10,8 +10,8 @@ import {
 } from 'discord-interactions';
 import { AUTH } from './commands.js';
 
-const GTEC_ROLE = 1374438933022249012
-const TUK_ROLE = 1374439011317321748
+const GTEC_ROLE = '1374438933022249012';
+const TUK_ROLE = '1374439011317321748';
 
 // Discord API 컴포넌트 타입 및 스타일 상수
 const MessageComponentTypes = {
