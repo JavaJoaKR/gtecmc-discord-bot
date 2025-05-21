@@ -152,7 +152,7 @@ router.post('/', async (request, env) => {
                     label: '학번을 입력해주세요.',
                     style: TextInputStyle.Short,
                     required: true,
-                    placeholder: `예) 20241234`,
+                    placeholder: `예) 202512345`,
                   },
                 ],
               },
@@ -202,7 +202,7 @@ router.post('/', async (request, env) => {
           return new JsonResponse({
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
             data: {
-              content: `학번 형식이 올바르지 않습니다. **${selectedUniversity}**의 올바른 학번(예: 20241234)을 다시 입력해주세요.`,
+              content: `학번 형식이 올바르지 않습니다.\n${selectedUniversity}의 올바른 학번(예: 202512345)을 다시 입력해주세요.`,
               flags: 64,
             },
           });
@@ -216,7 +216,7 @@ router.post('/', async (request, env) => {
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
             data: {
               content:
-                '봇 설정 오류: 인증 API 키가 설정되지 않았습니다. 관리자에게 문의하세요.',
+                '봇 설정 오류: 인증 API 키가 설정되지 않았습니다.\n관리자에게 문의하세요.',
               flags: 64,
             },
           });
@@ -247,7 +247,7 @@ router.post('/', async (request, env) => {
             return new JsonResponse({
               type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
               data: {
-                content: `**인증 메일이 전송되었습니다!**\n**${selectedUniversity}** 이메일(${univcertEmail})로 인증 메일이 전송되었습니다. 메일을 확인하고 아래 **'인증번호 입력' 버튼**을 클릭해주세요!`,
+                content: `**인증 메일이 전송되었습니다!**\n${selectedUniversity} 이메일(${univcertEmail})로 인증 메일이 전송되었습니다.\n메일을 확인하고 아래 버튼을 클릭해주세요!`,
                 components: [
                   {
                     type: MessageComponentTypes.ActionRow,
@@ -283,7 +283,7 @@ router.post('/', async (request, env) => {
           return new JsonResponse({
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
             data: {
-              content: `인증 서버와의 통신 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요. ${apiError}`,
+              content: `인증 서버와의 통신 중 오류가 발생했습니다.\n잠시 후 다시 시도해주세요. ${apiError}`,
               flags: 64,
             },
           });
@@ -310,7 +310,7 @@ router.post('/', async (request, env) => {
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
             data: {
               content:
-                '봇 설정 오류: 인증 API 키가 설정되지 않았습니다. 관리자에게 문의하세요.',
+                '봇 설정 오류: 인증 API 키가 설정되지 않았습니다.\n관리자에게 문의하세요.',
               flags: 64,
             },
           });
@@ -344,7 +344,7 @@ router.post('/', async (request, env) => {
                 type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
                 data: {
                   content:
-                    '봇 설정 오류: Discord 봇 토큰이 설정되지 않았습니다. 관리자에게 문의하세요.',
+                    '봇 설정 오류: Discord 봇 토큰이 설정되지 않았습니다.\n관리자에게 문의하세요.',
                   flags: 64,
                 },
               });
@@ -364,7 +364,7 @@ router.post('/', async (request, env) => {
               return new JsonResponse({
                 type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
                 data: {
-                  content: `인증은 완료되었으나, **${selectedUniversity}** 역할 ID가 설정되지 않아 역할을 부여할 수 없습니다. 관리자에게 문의하세요.`,
+                  content: `인증은 완료되었으나, *{selectedUniversity} 역할 ID가 설정되지 않아 역할을 부여할 수 없습니다.\n관리자에게 문의하세요.`,
                   flags: 64,
                 },
               });
@@ -396,7 +396,7 @@ router.post('/', async (request, env) => {
               return new JsonResponse({
                 type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
                 data: {
-                  content: `**역할 부여 실패!**\n인증은 완료되었으나, 역할 부여에 실패했습니다. 봇의 권한을 확인하거나 관리자에게 문의해주세요.\n(Discord API 오류: ${addRoleResponse.status} ${errorText.substring(0, 100)}...)`,
+                  content: `**역할 부여 실패!**\n인증은 완료되었으나, 역할 부여에 실패했습니다.\n봇의 권한을 확인하거나 관리자에게 문의해주세요.\n(Discord API 오류: ${addRoleResponse.status} ${errorText.substring(0, 100)}...)`,
                   flags: 64,
                 },
               });
@@ -420,7 +420,7 @@ router.post('/', async (request, env) => {
           return new JsonResponse({
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
             data: {
-              content: `인증 서버와의 통신 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요. ${apiError}`,
+              content: `인증 서버와의 통신 중 오류가 발생했습니다.\n잠시 후 다시 시도해주세요. ${apiError}`,
               flags: 64,
             },
           });
