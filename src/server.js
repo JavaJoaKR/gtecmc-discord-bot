@@ -124,17 +124,19 @@ router.post('/', async (request, env) => {
           let currentNickname =
             interaction.member.nick || interaction.member.user.username;
           let studentIdPrefix = '';
+          let actualName = currentNickname;
 
-          const studentIdMatch = currentNickname.match(/^(\d+)\s/);
+          const studentIdMatch = currentNickname.match(/^\[(\d+)\]\s*(.*)$/);
           if (studentIdMatch) {
             studentIdPrefix = studentIdMatch[1];
+            actualName = studentIdMatch[2];
           }
 
           return new JsonResponse({
             type: InteractionResponseType.MODAL,
             data: {
               custom_id: `rename_modal_${studentIdPrefix}`,
-              title: '닉네임 변경',
+              title: '닉네임 변경 (학번 입력 X)',
               components: [
                 {
                   type: MessageComponentTypes.ActionRow,
@@ -142,12 +144,10 @@ router.post('/', async (request, env) => {
                     {
                       type: MessageComponentTypes.TextInput,
                       custom_id: 'new_nickname_input',
-                      label: `이름을 입력해주세요.`,
+                      label: `변경할 이름을 입력해주세요.`,
                       style: TextInputStyle.Short,
                       required: true,
-                      placeholder: studentIdPrefix
-                        ? `${studentIdPrefix} 이름`
-                        : `이름`,
+                      placeholder: actualName,
                       max_length: 32,
                     },
                   ],
@@ -452,7 +452,7 @@ router.post('/', async (request, env) => {
 
             const guildId = interaction.guild_id;
             const userId = interaction.member.user.id;
-            const nickname = `${studentId} ${studentName}`;
+            const nickname = `[${studentId}] ${studentName}`;
 
             const changeNicknameResponse = await fetch(
               `https://discord.com/api/v10/guilds/${guildId}/members/${userId}`,
@@ -553,7 +553,7 @@ router.post('/', async (request, env) => {
         const userId = interaction.member.user.id;
 
         const finalNickname = studentIdPrefix
-          ? `${studentIdPrefix} ${newName}`
+          ? `[${studentIdPrefix}] ${newName}`
           : newName;
 
         try {
@@ -573,7 +573,7 @@ router.post('/', async (request, env) => {
             return new JsonResponse({
               type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
               data: {
-                content: `닉네임이 성공적으로 **${finalNickname}** (으)로 변경되었습니다.`,
+                content: `닉네임이 성공적으로 **${newName}** (으)로 변경되었습니다.`,
                 flags: 64,
               },
             });
