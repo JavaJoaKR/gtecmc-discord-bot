@@ -107,9 +107,39 @@ router.post('/', async (request, env) => {
       let selectedUniversity = '';
       if (customId === 'initial_university_select') {
         selectedUniversity = interaction.data.values[0];
+      } else if (customId.startsWith('show_verify_modal_')) {
+        // '인증번호 입력' 버튼 클릭 처리
+        const parts = customId.replace('show_verify_modal_', '').split(',');
+        selectedUniversity = parts[0].replace(/_/g, ' ');
+        const email = parts[1];
+
+        // '인증번호 입력' 모달 띄우기
+        return new JsonResponse({
+          type: InteractionResponseType.MODAL,
+          data: {
+            custom_id: `verify_code_modal_${selectedUniversity.replace(/ /g, '_')},${email}`,
+            title: '인증번호 입력',
+            components: [
+              {
+                type: MessageComponentTypes.ActionRow,
+                components: [
+                  {
+                    type: MessageComponentTypes.TextInput,
+                    custom_id: 'verification_code_input',
+                    label: '이메일로 전송된 인증번호를 입력해주세요.',
+                    style: TextInputStyle.Short,
+                    required: true,
+                    placeholder: '인증번호 6자리',
+                  },
+                ],
+              },
+            ],
+          },
+        });
       }
 
-      if (selectedUniversity) {
+      if (selectedUniversity && !customId.startsWith('show_verify_modal_')) {
+        // 초기 대학교 선택 드롭다운 처리
         return new JsonResponse({
           type: InteractionResponseType.MODAL,
           data: {
@@ -219,41 +249,27 @@ router.post('/', async (request, env) => {
           const univcertResult = await univcertResponse.json();
 
           if (univcertResponse.ok && univcertResult.success) {
-            const responsePayload = {
-              type: InteractionResponseType.MODAL,
+            // 이메일 전송 성공: 인증번호 입력 버튼을 포함한 메시지 전송
+            return new JsonResponse({
+              type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
               data: {
-                custom_id: `verify_code_modal_${selectedUniversity.replace(/ /g, '_')},${email}`,
-                title: '인증번호 입력',
+                content: `**인증 메일이 전송되었습니다!**\n\n**${selectedUniversity}** 이메일로 인증 메일이 전송되었습니다. 메일을 확인하고 아래 **'인증번호 입력' 버튼**을 클릭해주세요!`,
                 components: [
                   {
                     type: MessageComponentTypes.ActionRow,
                     components: [
                       {
-                        type: MessageComponentTypes.TextInput,
-                        custom_id: 'verification_code_input',
-                        label: '이메일로 전송된 인증번호를 입력해주세요.',
-                        style: TextInputStyle.Short,
-                        required: true,
-                        placeholder: '인증번호 6자리',
+                        type: MessageComponentTypes.Button,
+                        custom_id: `show_verify_modal_${selectedUniversity.replace(/ /g, '_')},${email}`, // 버튼에 대학교, 이메일 정보 포함
+                        style: 1, // ButtonStyle.Primary (파란색)
+                        label: '인증번호 입력',
                       },
                     ],
                   },
                 ],
+                flags: 64,
               },
-            };
-
-            await fetch(
-              `https://discord.com/api/v10/interactions/${interaction.id}/${interaction.token}/callback`,
-              {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(responsePayload),
-              },
-            );
-
-            return new Response(null, { status: 204 });
+            });
           } else {
             let errorMessage = '인증 메일 전송에 실패했습니다.';
             if (univcertResult.message) {
