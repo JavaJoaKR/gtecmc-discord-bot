@@ -9,6 +9,8 @@ import { AUTH } from './commands.js';
 const GTEC_ROLE = '1374438933022249012';
 const TUK_ROLE = '1374439011317321748';
 
+const ALLOWED_CHANNEL_ID = '1374615611291729960';
+
 const MessageComponentTypes = {
   ActionRow: 1,
   Button: 2,
@@ -56,6 +58,19 @@ router.post('/', async (request, env) => {
     if (interaction.type === InteractionType.PING) {
       return new JsonResponse({
         type: InteractionResponseType.PONG,
+      });
+    }
+
+    if (
+      interaction.channel_id &&
+      interaction.channel_id !== ALLOWED_CHANNEL_ID
+    ) {
+      return new JsonResponse({
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: {
+          content: `죄송합니다! 이 기능은 지정된 채널에서만 사용할 수 있습니다.`,
+          flags: 64,
+        },
       });
     }
 
@@ -338,8 +353,8 @@ router.post('/', async (request, env) => {
           const verifyResult = await verifyResponse.json();
 
           if (verifyResponse.ok && verifyResult.success) {
-            const discordBotToken = env.DISCORD_BOT_TOKEN;
-            if (!discordBotToken) {
+            const token = env.DISCORD_TOKEN;
+            if (!token) {
               return new JsonResponse({
                 type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
                 data: {
@@ -378,7 +393,7 @@ router.post('/', async (request, env) => {
               {
                 headers: {
                   'Content-Type': 'application/json',
-                  Authorization: `Bot ${discordBotToken}`,
+                  Authorization: `Bot ${token}`,
                 },
                 method: 'PUT',
               },
