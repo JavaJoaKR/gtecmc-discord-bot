@@ -376,10 +376,11 @@ router.post('/', async (request, env) => {
             const addRoleResponse = await fetch(
               `https://discord.com/api/v10/guilds/${guildId}/members/${userId}/roles/${roleIdToAssign}`,
               {
-                method: 'PUT',
                 headers: {
+                  'Content-Type': 'application/json',
                   Authorization: `Bot ${discordBotToken}`,
                 },
+                method: 'PUT',
               },
             );
 
