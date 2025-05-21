@@ -136,7 +136,7 @@ router.post('/', async (request, env) => {
             type: InteractionResponseType.MODAL,
             data: {
               custom_id: `rename_modal_${studentIdPrefix}`,
-              title: '닉네임 변경 (학번 입력 X)',
+              title: '닉네임 변경',
               components: [
                 {
                   type: MessageComponentTypes.ActionRow,
@@ -214,7 +214,7 @@ router.post('/', async (request, env) => {
                   {
                     type: MessageComponentTypes.TextInput,
                     custom_id: 'student_id_input',
-                    label: '학번 또는 메일 아이디를 입력해주세요.',
+                    label: '학번 또는 학교 메일 아이디를 입력해주세요.',
                     style: TextInputStyle.Short,
                     required: true,
                     placeholder: `예) 202512345`,
