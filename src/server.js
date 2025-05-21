@@ -127,7 +127,7 @@ router.post('/', async (request, env) => {
                     label: '이메일로 전송된 인증번호를 입력해주세요.',
                     style: TextInputStyle.Short,
                     required: true,
-                    placeholder: '인증번호 6자리',
+                    placeholder: '인증번호 4자리',
                   },
                 ],
               },
@@ -148,11 +148,11 @@ router.post('/', async (request, env) => {
                 components: [
                   {
                     type: MessageComponentTypes.TextInput,
-                    custom_id: 'email_input',
-                    label: '학교 이메일을 입력해주세요.',
+                    custom_id: 'student_id_input',
+                    label: '학번을 입력해주세요.',
                     style: TextInputStyle.Short,
                     required: true,
-                    placeholder: `예) 학번@${selectedUniversity === '경기과학기술대학교' ? 'office.gtec.ac.kr' : 'tukorea.ac.kr'}`,
+                    placeholder: `예) 20241234`,
                   },
                 ],
               },
@@ -174,16 +174,16 @@ router.post('/', async (request, env) => {
           .replace('email_modal_', '')
           .replace(/_/g, ' ');
 
-        let email = '';
+        let studentId = '';
         for (const actionRow of interaction.data.components) {
           for (const component of actionRow.components) {
-            if (component.custom_id === 'email_input') {
-              email = component.value;
+            if (component.custom_id === 'student_id_input') {
+              studentId = component.value;
             }
           }
         }
 
-        let isValidEmailFormat = false;
+        let actualEmail = '';
         let expectedDomain = '';
         const actualSelectedUnivValue =
           selectedUniversity === '한국공학대학교'
@@ -192,25 +192,23 @@ router.post('/', async (request, env) => {
 
         if (actualSelectedUnivValue === '경기과학기술대학교') {
           expectedDomain = 'office.gtec.ac.kr';
-          isValidEmailFormat = /^[a-zA-Z0-9._%+-]+@office\.gtec\.ac\.kr$/i.test(
-            email,
-          );
+          actualEmail = `${studentId}@${expectedDomain}`;
         } else if (actualSelectedUnivValue === '한국산업기술대학교') {
           expectedDomain = 'tukorea.ac.kr';
-          isValidEmailFormat = /^[a-zA-Z0-9._%+-]+@tukorea\.ac\.kr$/i.test(
-            email,
-          );
+          actualEmail = `${studentId}@${expectedDomain}`;
         }
 
-        if (!isValidEmailFormat) {
+        if (!/^[0-9]+$/.test(studentId) || studentId.length < 4) {
           return new JsonResponse({
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
             data: {
-              content: `이메일 형식이 맞지 않습니다. **${selectedUniversity}**의 올바른 이메일 형식(예: 학번@${expectedDomain})으로 다시 입력해주세요.`,
+              content: `학번 형식이 올바르지 않습니다. **${selectedUniversity}**의 올바른 학번(예: 20241234)을 다시 입력해주세요.`,
               flags: 64,
             },
           });
         }
+
+        const univcertEmail = actualEmail;
 
         const univcertApiKey = env.UNIVCERT_API_KEY;
         if (!univcertApiKey) {
@@ -226,7 +224,7 @@ router.post('/', async (request, env) => {
 
         const univcertPayload = {
           key: univcertApiKey,
-          email: email,
+          email: univcertEmail,
           univName: selectedUniversity,
           univ_check: false,
         };
@@ -249,14 +247,14 @@ router.post('/', async (request, env) => {
             return new JsonResponse({
               type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
               data: {
-                content: `**인증 메일이 전송되었습니다!**\n**${selectedUniversity}** 이메일로 인증 메일이 전송되었습니다. 메일을 확인하고 아래 **'인증번호 입력' 버튼**을 클릭해주세요!`,
+                content: `**인증 메일이 전송되었습니다!**\n**${selectedUniversity}** 이메일(${univcertEmail})로 인증 메일이 전송되었습니다. 메일을 확인하고 아래 **'인증번호 입력' 버튼**을 클릭해주세요!`,
                 components: [
                   {
                     type: MessageComponentTypes.ActionRow,
                     components: [
                       {
                         type: MessageComponentTypes.Button,
-                        custom_id: `show_verify_modal_${selectedUniversity.replace(/ /g, '_')},${email}`,
+                        custom_id: `show_verify_modal_${selectedUniversity.replace(/ /g, '_')},${encodeURIComponent(univcertEmail)}`,
                         style: 1,
                         label: '인증번호 입력',
                       },
@@ -276,7 +274,7 @@ router.post('/', async (request, env) => {
             return new JsonResponse({
               type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
               data: {
-                content: `**인증 메일 전송 실패!**\n${errorMessage}\n잠시 후 다시 시도하거나, 이메일 주소를 다시 확인해주세요.`,
+                content: `**인증 메일 전송 실패!**\n${errorMessage}\n잠시 후 다시 시도하거나, 학번을 다시 확인해주세요.`,
                 flags: 64,
               },
             });
@@ -295,7 +293,7 @@ router.post('/', async (request, env) => {
           .replace('verify_code_modal_', '')
           .split(',');
         const selectedUniversity = parts[0].replace(/_/g, ' ');
-        const email = parts[1];
+        const email = decodeURIComponent(parts[1]);
 
         let verificationCode = '';
         for (const actionRow of interaction.data.components) {
