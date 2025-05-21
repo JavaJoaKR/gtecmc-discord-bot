@@ -108,12 +108,10 @@ router.post('/', async (request, env) => {
       if (customId === 'initial_university_select') {
         selectedUniversity = interaction.data.values[0];
       } else if (customId.startsWith('show_verify_modal_')) {
-        // '인증번호 입력' 버튼 클릭 처리
         const parts = customId.replace('show_verify_modal_', '').split(',');
         selectedUniversity = parts[0].replace(/_/g, ' ');
         const email = parts[1];
 
-        // '인증번호 입력' 모달 띄우기
         return new JsonResponse({
           type: InteractionResponseType.MODAL,
           data: {
@@ -139,7 +137,6 @@ router.post('/', async (request, env) => {
       }
 
       if (selectedUniversity && !customId.startsWith('show_verify_modal_')) {
-        // 초기 대학교 선택 드롭다운 처리
         return new JsonResponse({
           type: InteractionResponseType.MODAL,
           data: {
@@ -249,19 +246,18 @@ router.post('/', async (request, env) => {
           const univcertResult = await univcertResponse.json();
 
           if (univcertResponse.ok && univcertResult.success) {
-            // 이메일 전송 성공: 인증번호 입력 버튼을 포함한 메시지 전송
             return new JsonResponse({
               type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
               data: {
-                content: `**인증 메일이 전송되었습니다!**\n\n**${selectedUniversity}** 이메일로 인증 메일이 전송되었습니다. 메일을 확인하고 아래 **'인증번호 입력' 버튼**을 클릭해주세요!`,
+                content: `**인증 메일이 전송되었습니다!**\n**${selectedUniversity}** 이메일로 인증 메일이 전송되었습니다. 메일을 확인하고 아래 **'인증번호 입력' 버튼**을 클릭해주세요!`,
                 components: [
                   {
                     type: MessageComponentTypes.ActionRow,
                     components: [
                       {
                         type: MessageComponentTypes.Button,
-                        custom_id: `show_verify_modal_${selectedUniversity.replace(/ /g, '_')},${email}`, // 버튼에 대학교, 이메일 정보 포함
-                        style: 1, // ButtonStyle.Primary (파란색)
+                        custom_id: `show_verify_modal_${selectedUniversity.replace(/ /g, '_')},${email}`,
+                        style: 1,
                         label: '인증번호 입력',
                       },
                     ],
@@ -280,7 +276,7 @@ router.post('/', async (request, env) => {
             return new JsonResponse({
               type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
               data: {
-                content: `**인증 메일 전송 실패!**\n\n${errorMessage}\n\n잠시 후 다시 시도하거나, 이메일 주소를 다시 확인해주세요.`,
+                content: `**인증 메일 전송 실패!**\n${errorMessage}\n잠시 후 다시 시도하거나, 이메일 주소를 다시 확인해주세요.`,
                 flags: 64,
               },
             });
@@ -393,16 +389,16 @@ router.post('/', async (request, env) => {
               return new JsonResponse({
                 type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
                 data: {
-                  content: `**인증 완료!**\n\n**${selectedUniversity}** 학생 역할(${roleName})이 성공적으로 부여되었습니다!`,
+                  content: `**인증 완료!**\n**${selectedUniversity}** 학생 역할(${roleName})이 성공적으로 부여되었습니다!`,
                   flags: 64,
                 },
               });
             } else {
-              const errorText = await addRoleResponse;
+              const errorText = await addRoleResponse.text();
               return new JsonResponse({
                 type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
                 data: {
-                  content: `**역할 부여 실패!**\n\n인증은 완료되었으나, 역할 부여에 실패했습니다. 봇의 권한을 확인하거나 관리자에게 문의해주세요.\n(Discord API 오류: ${JSON.stringify(errorText)}...)`,
+                  content: `**역할 부여 실패!**\n인증은 완료되었으나, 역할 부여에 실패했습니다. 봇의 권한을 확인하거나 관리자에게 문의해주세요.\n(Discord API 오류: ${addRoleResponse.status} ${errorText.substring(0, 100)}...)`,
                   flags: 64,
                 },
               });
@@ -417,7 +413,7 @@ router.post('/', async (request, env) => {
             return new JsonResponse({
               type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
               data: {
-                content: `**인증 실패!**\n\n${errorMessage}\n\n다시 확인하고 정확한 인증번호를 입력해주세요.`,
+                content: `**인증 실패!**\n${errorMessage}\n다시 확인하고 정확한 인증번호를 입력해주세요.`,
                 flags: 64,
               },
             });
