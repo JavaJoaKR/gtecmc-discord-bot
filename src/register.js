@@ -1,4 +1,4 @@
-import { AUTH } from './commands.js';
+import { AUTH, RENAME } from './commands.js';
 import dotenv from 'dotenv';
 import process from 'node:process';
 
@@ -34,7 +34,7 @@ const response = await fetch(url, {
     Authorization: `Bot ${token}`,
   },
   method: 'PUT',
-  body: JSON.stringify([AUTH]),
+  body: JSON.stringify([AUTH, RENAME]),
 });
 
 if (response.ok) {

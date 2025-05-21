@@ -4,7 +4,7 @@ import {
   InteractionType,
   verifyKey,
 } from 'discord-interactions';
-import { AUTH } from './commands.js';
+import { AUTH, RENAME } from './commands.js'; // Updated import
 
 const GTEC_ROLE = '1374438933022249012';
 const TUK_ROLE = '1374439011317321748';
@@ -61,22 +61,21 @@ router.post('/', async (request, env) => {
       });
     }
 
-    if (
-      interaction.channel_id &&
-      interaction.channel_id !== ALLOWED_CHANNEL_ID
-    ) {
-      return new JsonResponse({
-        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-        data: {
-          content: `죄송합니다! 이 기능은 지정된 채널에서만 사용할 수 있습니다.`,
-          flags: 64,
-        },
-      });
-    }
-
     if (interaction.type === InteractionType.APPLICATION_COMMAND) {
       switch (interaction.data.name.toLowerCase()) {
         case AUTH.name.toLowerCase(): {
+          if (
+            interaction.channel_id &&
+            interaction.channel_id !== ALLOWED_CHANNEL_ID
+          ) {
+            return new JsonResponse({
+              type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+              data: {
+                content: `죄송합니다! 이 기능은 지정된 채널에서만 사용할 수 있습니다.`,
+                flags: 64,
+              },
+            });
+          }
           return new JsonResponse({
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
             data: {
@@ -108,6 +107,55 @@ router.post('/', async (request, env) => {
             },
           });
         }
+        case RENAME.name.toLowerCase(): {
+          const token = env.DISCORD_TOKEN;
+          if (!token) {
+            return new JsonResponse({
+              type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+              data: {
+                content:
+                  '봇 설정 오류: Discord 봇 토큰이 설정되지 않았습니다.\n관리자에게 문의하세요.',
+                flags: 64,
+              },
+            });
+          }
+
+          let currentNickname =
+            interaction.member.nick || interaction.member.user.username;
+          let studentIdPrefix = '';
+
+          // Attempt to extract student ID from current nickname
+          const studentIdMatch = currentNickname.match(/^(\d+)\s/);
+          if (studentIdMatch) {
+            studentIdPrefix = studentIdMatch[1];
+          }
+
+          return new JsonResponse({
+            type: InteractionResponseType.MODAL,
+            data: {
+              custom_id: `rename_modal_${studentIdPrefix}`, // Pass student ID to modal custom_id
+              title: '닉네임 변경',
+              components: [
+                {
+                  type: MessageComponentTypes.ActionRow,
+                  components: [
+                    {
+                      type: MessageComponentTypes.TextInput,
+                      custom_id: 'new_nickname_input',
+                      label: `이름을 입력해주세요. (학번: ${studentIdPrefix || '없음'})`,
+                      style: TextInputStyle.Short,
+                      required: true,
+                      placeholder: studentIdPrefix
+                        ? `${studentIdPrefix} 새로운이름`
+                        : `새로운이름`,
+                      max_length: 32, // Discord nickname limit
+                    },
+                  ],
+                },
+              ],
+            },
+          });
+        }
         default:
           return new JsonResponse(
             { error: 'Unknown Command' },
@@ -126,11 +174,13 @@ router.post('/', async (request, env) => {
         const parts = customId.replace('show_verify_modal_', '').split(',');
         selectedUniversity = parts[0].replace(/_/g, ' ');
         const email = parts[1];
+        const studentId = parts[2] ? decodeURIComponent(parts[2]) : '';
+        const studentName = parts[3] ? decodeURIComponent(parts[3]) : '';
 
         return new JsonResponse({
           type: InteractionResponseType.MODAL,
           data: {
-            custom_id: `verify_code_modal_${selectedUniversity.replace(/ /g, '_')},${email}`,
+            custom_id: `verify_code_modal_${selectedUniversity.replace(/ /g, '_')},${email},${encodeURIComponent(studentId)},${encodeURIComponent(studentName)}`,
             title: '인증번호 입력',
             components: [
               {
@@ -153,26 +203,8 @@ router.post('/', async (request, env) => {
 
       if (selectedUniversity && !customId.startsWith('show_verify_modal_')) {
         return new JsonResponse({
-          type: InteractionResponseType.MODAL,
-          data: {
-            custom_id: `email_modal_${selectedUniversity.replace(/ /g, '_')}`,
-            title: `${selectedUniversity} 이메일 인증`,
-            components: [
-              {
-                type: MessageComponentTypes.ActionRow,
-                components: [
-                  {
-                    type: MessageComponentTypes.TextInput,
-                    custom_id: 'student_id_input',
-                    label: '학번을 입력해주세요.',
-                    style: TextInputStyle.Short,
-                    required: true,
-                    placeholder: `예) 202512345`,
-                  },
-                ],
-              },
-            ],
-          },
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: { content: '알 수 없는 상호작용입니다.', flags: 64 },
         });
       }
       return new JsonResponse({
@@ -190,10 +222,13 @@ router.post('/', async (request, env) => {
           .replace(/_/g, ' ');
 
         let studentId = '';
+        let studentName = '';
         for (const actionRow of interaction.data.components) {
           for (const component of actionRow.components) {
             if (component.custom_id === 'student_id_input') {
               studentId = component.value;
+            } else if (component.custom_id === 'student_name_input') {
+              studentName = component.value;
             }
           }
         }
@@ -269,7 +304,7 @@ router.post('/', async (request, env) => {
                     components: [
                       {
                         type: MessageComponentTypes.Button,
-                        custom_id: `show_verify_modal_${selectedUniversity.replace(/ /g, '_')},${encodeURIComponent(univcertEmail)}`,
+                        custom_id: `show_verify_modal_${selectedUniversity.replace(/ /g, '_')},${encodeURIComponent(univcertEmail)},${encodeURIComponent(studentId)},${encodeURIComponent(studentName)}`,
                         style: 1,
                         label: '인증번호 입력',
                       },
@@ -309,6 +344,8 @@ router.post('/', async (request, env) => {
           .split(',');
         const selectedUniversity = parts[0].replace(/_/g, ' ');
         const email = decodeURIComponent(parts[1]);
+        const studentId = parts[2] ? decodeURIComponent(parts[2]) : '';
+        const studentName = parts[3] ? decodeURIComponent(parts[3]) : '';
 
         let verificationCode = '';
         for (const actionRow of interaction.data.components) {
@@ -366,20 +403,17 @@ router.post('/', async (request, env) => {
             }
 
             let roleIdToAssign = '';
-            let roleName = '';
             if (selectedUniversity === '경기과학기술대학교') {
               roleIdToAssign = GTEC_ROLE;
-              roleName = '경기과기대';
             } else if (selectedUniversity === '한국공학대학교') {
               roleIdToAssign = TUK_ROLE;
-              roleName = '한국공학대';
             }
 
             if (!roleIdToAssign) {
               return new JsonResponse({
                 type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
                 data: {
-                  content: `인증은 완료되었으나, *{selectedUniversity} 역할 ID가 설정되지 않아 역할을 부여할 수 없습니다.\n관리자에게 문의하세요.`,
+                  content: `인증은 완료되었으나, ${selectedUniversity} 역할 ID가 설정되지 않아 역할을 부여할 수 없습니다.\n관리자에게 문의하세요.`,
                   flags: 64,
                 },
               });
@@ -387,6 +421,26 @@ router.post('/', async (request, env) => {
 
             const guildId = interaction.guild_id;
             const userId = interaction.member.user.id;
+            const nickname = `${studentId} ${studentName}`;
+
+            const changeNicknameResponse = await fetch(
+              `https://discord.com/api/v10/guilds/${guildId}/members/${userId}`,
+              {
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bot ${token}`,
+                },
+                method: 'PATCH',
+                body: JSON.stringify({ nick: nickname }),
+              },
+            );
+
+            if (!changeNicknameResponse.ok) {
+              console.error(
+                'Failed to change nickname:',
+                await changeNicknameResponse.text(),
+              );
+            }
 
             const addRoleResponse = await fetch(
               `https://discord.com/api/v10/guilds/${guildId}/members/${userId}/roles/${roleIdToAssign}`,
@@ -403,7 +457,7 @@ router.post('/', async (request, env) => {
               return new JsonResponse({
                 type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
                 data: {
-                  content: `**인증 완료!**\n**${selectedUniversity}** 학생 역할(${roleName})이 성공적으로 부여되었습니다!`,
+                  content: `**${selectedUniversity} 학생 인증 완료!**`,
                   flags: 64,
                 },
               });
@@ -437,6 +491,77 @@ router.post('/', async (request, env) => {
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
             data: {
               content: `인증 서버와의 통신 중 오류가 발생했습니다.\n잠시 후 다시 시도해주세요. ${apiError}`,
+              flags: 64,
+            },
+          });
+        }
+      } else if (modalCustomId.startsWith('rename_modal_')) {
+        const studentIdPrefix = modalCustomId.replace('rename_modal_', ''); // Retrieve student ID passed in custom_id
+        let newName = '';
+        for (const actionRow of interaction.data.components) {
+          for (const component of actionRow.components) {
+            if (component.custom_id === 'new_nickname_input') {
+              newName = component.value;
+            }
+          }
+        }
+
+        const token = env.DISCORD_TOKEN;
+        if (!token) {
+          return new JsonResponse({
+            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+            data: {
+              content:
+                '봇 설정 오류: Discord 봇 토큰이 설정되지 않았습니다.\n관리자에게 문의하세요.',
+              flags: 64,
+            },
+          });
+        }
+
+        const guildId = interaction.guild_id;
+        const userId = interaction.member.user.id;
+
+        // Construct the full new nickname with the preserved student ID
+        const finalNickname = studentIdPrefix
+          ? `${studentIdPrefix} ${newName}`
+          : newName;
+
+        try {
+          const changeNicknameResponse = await fetch(
+            `https://discord.com/api/v10/guilds/${guildId}/members/${userId}`,
+            {
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bot ${token}`,
+              },
+              method: 'PATCH',
+              body: JSON.stringify({ nick: finalNickname }),
+            },
+          );
+
+          if (changeNicknameResponse.ok) {
+            return new JsonResponse({
+              type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+              data: {
+                content: `닉네임이 성공적으로 **${finalNickname}** (으)로 변경되었습니다.`,
+                flags: 64,
+              },
+            });
+          } else {
+            const errorText = await changeNicknameResponse.text();
+            return new JsonResponse({
+              type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+              data: {
+                content: `닉네임 변경에 실패했습니다.\n봇의 권한을 확인하거나, 유효한 닉네임인지 확인해주세요.\n(Discord API 오류: ${changeNicknameResponse.status} ${errorText.substring(0, 100)}...)`,
+                flags: 64,
+              },
+            });
+          }
+        } catch (apiError) {
+          return new JsonResponse({
+            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+            data: {
+              content: `Discord API 통신 중 오류가 발생했습니다.\n잠시 후 다시 시도해주세요. ${apiError}`,
               flags: 64,
             },
           });
