@@ -1,7 +1,3 @@
-/**
- * The core server that runs on a Cloudflare worker.
- */
-
 import { AutoRouter } from 'itty-router';
 import {
   InteractionResponseType,
@@ -13,11 +9,10 @@ import { AUTH } from './commands.js';
 const GTEC_ROLE = '1374438933022249012';
 const TUK_ROLE = '1374439011317321748';
 
-// Discord API 컴포넌트 타입 및 스타일 상수
 const MessageComponentTypes = {
   ActionRow: 1,
   Button: 2,
-  StringSelect: 3, // StringSelect는 3번 타입입니다.
+  StringSelect: 3,
   TextInput: 4,
   UserSelect: 5,
   RoleSelect: 6,
@@ -25,8 +20,8 @@ const MessageComponentTypes = {
   ChannelSelect: 8,
 };
 const TextInputStyle = {
-  Short: 1, // 한 줄 텍스트 입력
-  Paragraph: 2, // 여러 줄 텍스트 입력
+  Short: 1,
+  Paragraph: 2,
 };
 
 class JsonResponse extends Response {
@@ -48,62 +43,44 @@ router.get('/', (request, env) => {
 });
 
 router.post('/', async (request, env) => {
-  console.log('Interaction received:', new Date().toISOString());
-
   try {
-    // Worker 내부에서 발생하는 모든 예외를 잡기 위한 try-catch 블록
     const { isValid, interaction } = await server.verifyDiscordRequest(
       request,
       env,
     );
 
     if (!isValid || !interaction) {
-      console.log('Invalid request signature or no interaction.', {
-        isValid,
-        interaction,
-      });
       return new Response('Bad request signature.', { status: 401 });
     }
-    console.log('Request valid. Interaction type:', interaction.type);
-    console.log('Interaction data:', JSON.stringify(interaction.data, null, 2));
 
     if (interaction.type === InteractionType.PING) {
-      console.log('Responding with PONG.');
       return new JsonResponse({
         type: InteractionResponseType.PONG,
       });
     }
 
-    // --- 1. 슬래시 명령어 처리 (`/인증`): 관리자만 사용, 드롭다운 포함 메시지 전송 ---
     if (interaction.type === InteractionType.APPLICATION_COMMAND) {
-      console.log('Handling APPLICATION_COMMAND:', interaction.data.name);
       switch (interaction.data.name.toLowerCase()) {
         case AUTH.name.toLowerCase(): {
-          console.log(
-            'User called /인증. Sending university selection message with dropdown.',
-          );
           return new JsonResponse({
-            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE, // 채널에 메시지 전송
+            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
             data: {
               content:
-                '대학교 인증을 시작합니다.\n재학생, 졸업생 모두 가능합니다.',
+                '통합 마인크래프트 서버 디스코드입니다.\n재학생, 졸업생 모두 가능합니다.',
               components: [
-                // 메시지에 드롭다운 추가
                 {
                   type: MessageComponentTypes.ActionRow,
                   components: [
                     {
-                      type: MessageComponentTypes.StringSelect, // 버튼 대신 StringSelect 사용
-                      custom_id: 'initial_university_select', // 드롭다운의 고유 ID
-                      placeholder: '대학교를 선택해주세요.',
+                      type: MessageComponentTypes.StringSelect,
+                      custom_id: 'initial_university_select',
+                      placeholder: '인증할 대학교를 선택해주세요.',
                       options: [
-                        // 드롭다운에 표시될 옵션들
                         {
                           label: '경기과학기술대학교',
                           value: '경기과학기술대학교',
                         },
                         {
-                          // '한국산업기술대학교'를 '한국공학대학교'로 변경하여 일관성 유지
                           label: '한국공학대학교',
                           value: '한국산업기술대학교',
                         },
@@ -112,12 +89,11 @@ router.post('/', async (request, env) => {
                   ],
                 },
               ],
-              flags: 64, // <-- 메시지를 본인에게만 보이도록 설정
+              flags: 64,
             },
           });
         }
         default:
-          console.error('Unknown Command:', interaction.data.name);
           return new JsonResponse(
             { error: 'Unknown Command' },
             { status: 400 },
@@ -125,30 +101,19 @@ router.post('/', async (request, env) => {
       }
     }
 
-    // --- 2. 드롭다운 선택 상호작용 처리 (`MESSAGE_COMPONENT`): 이메일 입력 모달 표시 ---
     if (interaction.type === InteractionType.MESSAGE_COMPONENT) {
-      console.log(
-        'Handling MESSAGE_COMPONENT (Dropdown Select). Custom ID:',
-        interaction.data.custom_id,
-      );
       const customId = interaction.data.custom_id;
 
       let selectedUniversity = '';
-      // 'initial_university_select' 드롭다운에서 선택된 경우
       if (customId === 'initial_university_select') {
-        // 드롭다운의 선택된 값은 interaction.data.values 배열에 있습니다.
-        selectedUniversity = interaction.data.values[0]; // 첫 번째 (단일 선택) 값을 가져옵니다.
+        selectedUniversity = interaction.data.values[0];
       }
 
       if (selectedUniversity) {
-        console.log(
-          `User selected ${selectedUniversity} from dropdown. Preparing to send email modal.`,
-        );
         return new JsonResponse({
-          type: InteractionResponseType.MODAL, // 모달 표시
+          type: InteractionResponseType.MODAL,
           data: {
-            // 모달 custom_id에 선택된 대학교 정보를 포함하여 나중에 추출할 수 있도록 합니다.
-            custom_id: `email_modal_${selectedUniversity.replace(/ /g, '_')}`, // 예: email_modal_경기과학기술대학교
+            custom_id: `email_modal_${selectedUniversity.replace(/ /g, '_')}`,
             title: `${selectedUniversity} 이메일 인증`,
             components: [
               {
@@ -156,11 +121,10 @@ router.post('/', async (request, env) => {
                 components: [
                   {
                     type: MessageComponentTypes.TextInput,
-                    custom_id: 'email_input', // 이메일 입력 필드 ID
+                    custom_id: 'email_input',
                     label: '학교 이메일을 입력해주세요.',
                     style: TextInputStyle.Short,
                     required: true,
-                    // 이메일 플레이스홀더를 요청에 따라 업데이트
                     placeholder: `예) 학번@${selectedUniversity === '경기과학기술대학교' ? 'office.gtec.ac.kr' : 'tukorea.ac.kr'}`,
                   },
                 ],
@@ -169,23 +133,15 @@ router.post('/', async (request, env) => {
           },
         });
       }
-      console.log('Unknown message component custom_id:', customId);
-      // 알 수 없는 드롭다운 또는 버튼 클릭 시, 사용자에게만 보이는 임시 메시지로 응답 (타임아웃 방지)
       return new JsonResponse({
         type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-        data: { content: '알 수 없는 상호작용입니다.', flags: 64 }, // flags: 64는 ephemeral (사용자만 볼 수 있음)
+        data: { content: '알 수 없는 상호작용입니다.', flags: 64 },
       });
     }
 
-    // --- 3. 모달 제출 처리 (`MODAL_SUBMIT`) ---
     if (interaction.type === InteractionType.MODAL_SUBMIT) {
-      console.log(
-        'Handling MODAL_SUBMIT. Custom ID:',
-        interaction.data.custom_id,
-      );
       const modalCustomId = interaction.data.custom_id;
 
-      // --- 3.1 이메일 입력 모달 제출 처리 ---
       if (modalCustomId.startsWith('email_modal_')) {
         let selectedUniversity = modalCustomId
           .replace('email_modal_', '')
@@ -200,19 +156,19 @@ router.post('/', async (request, env) => {
           }
         }
 
-        console.log(
-          `Email modal submitted: University - ${selectedUniversity}, Email - ${email}.`,
-        );
-
-        // --- 3.1.1 이메일 형식 유효성 검사 ---
         let isValidEmailFormat = false;
         let expectedDomain = '';
-        if (selectedUniversity === '경기과학기술대학교') {
+        const actualSelectedUnivValue =
+          selectedUniversity === '한국공학대학교'
+            ? '한국산업기술대학교'
+            : selectedUniversity;
+
+        if (actualSelectedUnivValue === '경기과학기술대학교') {
           expectedDomain = 'office.gtec.ac.kr';
           isValidEmailFormat = /^[a-zA-Z0-9._%+-]+@office\.gtec\.ac\.kr$/i.test(
             email,
           );
-        } else if (selectedUniversity === '한국공학대학교') {
+        } else if (actualSelectedUnivValue === '한국산업기술대학교') {
           expectedDomain = 'tukorea.ac.kr';
           isValidEmailFormat = /^[a-zA-Z0-9._%+-]+@tukorea\.ac\.kr$/i.test(
             email,
@@ -220,9 +176,6 @@ router.post('/', async (request, env) => {
         }
 
         if (!isValidEmailFormat) {
-          console.log(
-            `Email format invalid for ${selectedUniversity}: ${email}`,
-          );
           return new JsonResponse({
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
             data: {
@@ -232,12 +185,8 @@ router.post('/', async (request, env) => {
           });
         }
 
-        // --- 3.1.2 UnivCert API (인증 메일 전송) 호출 ---
         const univcertApiKey = env.UNIVCERT_API_KEY;
         if (!univcertApiKey) {
-          console.error(
-            'UNIVCERT_API_KEY is not set in Cloudflare Worker secrets.',
-          );
           return new JsonResponse({
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
             data: {
@@ -256,10 +205,6 @@ router.post('/', async (request, env) => {
         };
 
         try {
-          console.log(
-            'Sending request to UnivCert API (certify):',
-            JSON.stringify(univcertPayload),
-          );
           const univcertResponse = await fetch(
             'https://univcert.com/api/v1/certify',
             {
@@ -272,20 +217,11 @@ router.post('/', async (request, env) => {
           );
 
           const univcertResult = await univcertResponse.json();
-          console.log(
-            'UnivCert API (certify) Response:',
-            JSON.stringify(univcertResult),
-          );
 
           if (univcertResponse.ok && univcertResult.success) {
-            // --- 인증 메일 전송 성공: 인증번호 입력 모달 띄우기 ---
-            console.log(
-              'UnivCert certify successful. Showing verification code modal.',
-            );
-            return new JsonResponse({
+            const responsePayload = {
               type: InteractionResponseType.MODAL,
               data: {
-                // 인증번호 모달의 custom_id에 대학교와 이메일 정보를 포함 (쉼표로 구분)
                 custom_id: `verify_code_modal_${selectedUniversity.replace(/ /g, '_')},${email}`,
                 title: '인증번호 입력',
                 components: [
@@ -304,16 +240,27 @@ router.post('/', async (request, env) => {
                   },
                 ],
               },
-            });
+            };
+
+            await fetch(
+              `https://discord.com/api/v10/interactions/${interaction.id}/${interaction.token}/callback`,
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(responsePayload),
+              },
+            );
+
+            return new Response(null, { status: 204 });
           } else {
-            // UnivCert certify 실패
             let errorMessage = '인증 메일 전송에 실패했습니다.';
             if (univcertResult.message) {
               errorMessage += `\n오류: ${univcertResult.message}`;
             } else {
               errorMessage += `\n알 수 없는 API 응답 오류.`;
             }
-            console.error('UnivCert certify API error:', univcertResult);
             return new JsonResponse({
               type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
               data: {
@@ -323,20 +270,15 @@ router.post('/', async (request, env) => {
             });
           }
         } catch (apiError) {
-          console.error('Error during UnivCert certify API call:', apiError);
           return new JsonResponse({
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
             data: {
-              content:
-                '인증 서버와의 통신 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
+              content: `인증 서버와의 통신 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요. ${apiError}`,
               flags: 64,
             },
           });
         }
-      }
-      // --- 3.2 인증번호 입력 모달 제출 처리 ---
-      else if (modalCustomId.startsWith('verify_code_modal_')) {
-        // 모달 custom_id에서 대학교와 이메일 정보를 추출
+      } else if (modalCustomId.startsWith('verify_code_modal_')) {
         const parts = modalCustomId
           .replace('verify_code_modal_', '')
           .split(',');
@@ -352,16 +294,8 @@ router.post('/', async (request, env) => {
           }
         }
 
-        console.log(
-          `Verification code modal submitted: University - ${selectedUniversity}, Email - ${email}, Code - ${verificationCode}.`,
-        );
-
-        // --- 3.2.1 UnivCert API (인증번호 확인) 호출 ---
         const univcertApiKey = env.UNIVCERT_API_KEY;
         if (!univcertApiKey) {
-          console.error(
-            'UNIVCERT_API_KEY is not set in Cloudflare Worker secrets.',
-          );
           return new JsonResponse({
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
             data: {
@@ -380,10 +314,6 @@ router.post('/', async (request, env) => {
         };
 
         try {
-          console.log(
-            'Sending request to UnivCert API (certifycode):',
-            JSON.stringify(verifyPayload),
-          );
           const verifyResponse = await fetch(
             'https://univcert.com/api/v1/certifycode',
             {
@@ -396,25 +326,10 @@ router.post('/', async (request, env) => {
           );
 
           const verifyResult = await verifyResponse.json();
-          console.log(
-            'UnivCert API (certifycode) Response:',
-            JSON.stringify(verifyResult),
-          );
 
           if (verifyResponse.ok && verifyResult.success) {
-            // --- 인증 완료! 역할 부여 로직 시작 ---
-            console.log(
-              `Authentication successful for ${email} at ${selectedUniversity}. Attempting to assign role.`,
-            );
-
-            // Discord API를 통해 사용자에게 역할 부여
-            // 봇이 해당 서버에서 역할 관리 권한을 가지고 있어야 합니다.
-            // env에 Discord 봇 토큰이 SECRETS 변수로 설정되어 있어야 합니다 (예: DISCORD_BOT_TOKEN)
             const discordBotToken = env.DISCORD_BOT_TOKEN;
             if (!discordBotToken) {
-              console.error(
-                'DISCORD_BOT_TOKEN is not set in Cloudflare Worker secrets.',
-              );
               return new JsonResponse({
                 type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
                 data: {
@@ -426,19 +341,16 @@ router.post('/', async (request, env) => {
             }
 
             let roleIdToAssign = '';
-            let roleName = ''; // 역할 이름도 메시지에 포함할 수 있도록
+            let roleName = '';
             if (selectedUniversity === '경기과학기술대학교') {
               roleIdToAssign = GTEC_ROLE;
-              roleName = '경기과기대'; // 예시 역할 이름
+              roleName = '경기과기대';
             } else if (selectedUniversity === '한국공학대학교') {
               roleIdToAssign = TUK_ROLE;
-              roleName = '한국공학대'; // 예시 역할 이름
+              roleName = '한국공학대';
             }
 
             if (!roleIdToAssign) {
-              console.error(
-                `Role ID not configured for ${selectedUniversity}.`,
-              );
               return new JsonResponse({
                 type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
                 data: {
@@ -448,14 +360,9 @@ router.post('/', async (request, env) => {
               });
             }
 
-            // Discord API: 길드 멤버에게 역할 추가 요청
-            // PUT /guilds/{guild.id}/members/{user.id}/roles/{role.id}
-            const guildId = interaction.guild_id; // 상호작용이 발생한 길드 ID
-            const userId = interaction.member.user.id; // 상호작용을 한 사용자 ID
+            const guildId = interaction.guild_id;
+            const userId = interaction.member.user.id;
 
-            console.log(
-              `Attempting to assign role ${roleIdToAssign} to user ${userId} in guild ${guildId}.`,
-            );
             const addRoleResponse = await fetch(
               `https://discord.com/api/v10/guilds/${guildId}/members/${userId}/roles/${roleIdToAssign}`,
               {
@@ -467,9 +374,6 @@ router.post('/', async (request, env) => {
             );
 
             if (addRoleResponse.ok) {
-              console.log(
-                `Role ${roleIdToAssign} successfully assigned to user ${userId}.`,
-              );
               return new JsonResponse({
                 type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
                 data: {
@@ -478,12 +382,6 @@ router.post('/', async (request, env) => {
                 },
               });
             } else {
-              console.error(
-                `Failed to assign role ${roleIdToAssign} to user ${userId}:`,
-                addRoleResponse.status,
-                await addRoleResponse.text(),
-              );
-              // Discord API 오류 메시지 포함
               const errorText = await addRoleResponse.text();
               return new JsonResponse({
                 type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
@@ -494,14 +392,12 @@ router.post('/', async (request, env) => {
               });
             }
           } else {
-            // UnivCert certifycode 실패
             let errorMessage = '인증번호가 올바르지 않습니다.';
             if (verifyResult.message) {
               errorMessage += `\n오류: ${verifyResult.message}`;
             } else {
               errorMessage += `\n알 수 없는 API 응답 오류.`;
             }
-            console.error('UnivCert certifycode API error:', verifyResult);
             return new JsonResponse({
               type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
               data: {
@@ -511,23 +407,15 @@ router.post('/', async (request, env) => {
             });
           }
         } catch (apiError) {
-          console.error(
-            'Error during UnivCert certifycode API call:',
-            apiError,
-          );
           return new JsonResponse({
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
             data: {
-              content:
-                '인증 서버와의 통신 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
+              content: `인증 서버와의 통신 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요. ${apiError}`,
               flags: 64,
             },
           });
         }
-      }
-      // --- 알 수 없는 모달 제출 (email_modal_ 또는 verify_code_modal_이 아닌 경우) ---
-      else {
-        console.log('Unknown modal custom_id:', interaction.data.custom_id);
+      } else {
         return new JsonResponse({
           type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
           data: { content: '알 수 없는 모달 상호작용입니다.', flags: 64 },
@@ -535,11 +423,8 @@ router.post('/', async (request, env) => {
       }
     }
 
-    // 예상치 못한 상호작용 타입인 경우 (APPLICATION_COMMAND, MESSAGE_COMPONENT, MODAL_SUBMIT 이외)
-    console.error('Unknown Interaction Type:', interaction.type);
     return new JsonResponse({ error: 'Unknown Type' }, { status: 400 });
   } catch (error) {
-    console.error('Unhandled error in router.post:', error);
     return new JsonResponse(
       { error: 'Internal Server Error', details: error.message },
       { status: 500 },
@@ -550,28 +435,20 @@ router.post('/', async (request, env) => {
 router.all('*', () => new Response('Not Found.', { status: 404 }));
 
 async function verifyDiscordRequest(request, env) {
-  console.log('Entering verifyDiscordRequest.');
   const signature = request.headers.get('x-signature-ed25519');
   const timestamp = request.headers.get('x-signature-timestamp');
   const body = await request.text();
 
-  console.log('Body parsed. Attempting signature verification.');
   const isValidRequest =
     signature &&
     timestamp &&
     (await verifyKey(body, signature, timestamp, env.DISCORD_PUBLIC_KEY));
-
-  console.log('Signature verification complete. isValid:', isValidRequest);
 
   if (!isValidRequest) {
     return { isValid: false };
   }
 
   const interaction = JSON.parse(body);
-  console.log(
-    'Parsed interaction object:',
-    JSON.stringify(interaction, null, 2),
-  );
 
   return { interaction, isValid: true };
 }
